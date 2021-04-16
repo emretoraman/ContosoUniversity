@@ -17,9 +17,39 @@ namespace ContosoUniversity.Controllers
 		}
 
 		// GET: Students
-		public async Task<IActionResult> Index()
+		public async Task<IActionResult> Index(string sortOrder, string currentFilter, string searchString, int? pageNumber)
 		{
-			return View(await _context.Students.ToListAsync());
+			ViewData["CurrentSort"] = sortOrder;
+			ViewData["NameSortParm"] = string.IsNullOrEmpty(sortOrder) ? "name_desc" : "";
+			ViewData["DateSortParm"] = sortOrder == "Date" ? "date_desc" : "Date";
+
+			if (searchString != null)
+			{
+				pageNumber = 1;
+			}
+			else
+			{
+				searchString = currentFilter;
+			}
+
+			ViewData["CurrentFilter"] = searchString;
+
+			var students = from s in _context.Students
+						   select s;
+			if (!string.IsNullOrEmpty(searchString))
+			{
+				students = students.Where(s => s.LastName.Contains(searchString) || s.FirstMidName.Contains(searchString));
+			}
+			students = sortOrder switch
+			{
+				"name_desc" => students.OrderByDescending(s => s.LastName),
+				"Date" => students.OrderBy(s => s.EnrollmentDate),
+				"date_desc" => students.OrderByDescending(s => s.EnrollmentDate),
+				_ => students.OrderBy(s => s.LastName),
+			};
+
+			int pageSize = 3;
+			return View(await PaginatedList<Student>.CreateAsync(students.AsNoTracking(), pageNumber ?? 1, pageSize));
 		}
 
 		// GET: Students/Details/5
@@ -161,7 +191,7 @@ namespace ContosoUniversity.Controllers
 			}
 			catch (DbUpdateException)
 			{
-				return RedirectToAction(nameof(Delete), new { id = id, saveChangesError = true });
+				return RedirectToAction(nameof(Delete), new { id, saveChangesError = true });
 			}
 		}
 
