@@ -3,13 +3,14 @@ using ContosoUniversity.Models;
 using ContosoUniversity.Models.SchoolViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Data.Common;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace ContosoUniversity.Controllers
 {
-	public class HomeController : Controller
+    public class HomeController : Controller
 	{
 		private readonly SchoolContext _context;
 		public HomeController(SchoolContext context)
@@ -24,16 +25,34 @@ namespace ContosoUniversity.Controllers
 
 		public async Task<IActionResult> About()
 		{
-			var data =
-				from student in _context.Students
-				group student by student.EnrollmentDate into dateGroup
-				select new EnrollmentDateGroup()
-				{
-					EnrollmentDate = dateGroup.Key,
-					StudentCount = dateGroup.Count() 
-				};
-			return View(await data.AsNoTracking().ToListAsync());
-		}
+            var groups = new List<EnrollmentDateGroup>();
+            var conn = _context.Database.GetDbConnection();
+            try
+            {
+                await conn.OpenAsync();
+                using var command = conn.CreateCommand();
+                string query = "SELECT EnrollmentDate, COUNT(*) AS StudentCount "
+                    + "FROM Person "
+                    + "WHERE Discriminator = 'Student' "
+                    + "GROUP BY EnrollmentDate";
+                command.CommandText = query;
+                using var reader = await command.ExecuteReaderAsync();
+
+                if (reader.HasRows)
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        var row = new EnrollmentDateGroup { EnrollmentDate = reader.GetDateTime(0), StudentCount = reader.GetInt32(1) };
+                        groups.Add(row);
+                    }
+                }
+            }
+            finally
+            {
+                conn.Close();
+            }
+            return View(groups);
+        }
 
 		public IActionResult Privacy()
 		{
