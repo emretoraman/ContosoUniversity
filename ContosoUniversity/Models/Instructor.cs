@@ -26,10 +26,7 @@ namespace ContosoUniversity.Models
         public DateTime HireDate { get; set; }
 
         [Display(Name = "Full Name")]
-        public string FullName
-        {
-            get { return LastName + ", " + FirstMidName; }
-        }
+        public string FullName => $"{LastName}, {FirstMidName}";
 
         public ICollection<CourseAssignment> CourseAssignments { get; set; }
         public OfficeAssignment OfficeAssignment { get; set; }
